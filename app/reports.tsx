@@ -3,54 +3,66 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import { ActivityIndicator, FlatList, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useData } from '../context/DataContext';
+import { useData } from '../context/DataContext'; // Asegúrate que DataContext provea 'clientes'
 import { COLORS } from '../styles/theme';
 
 interface Sale {
     id: string;
     clienteId?: string;
-    clientName?: string;
-    fecha: { seconds: number; nanoseconds: number; };
+    clientName?: string; // Nombre guardado desde móvil (posiblemente)
+    clienteNombre?: string; // Nombre guardado desde desktop
+    fecha: Date;
     totalVenta: number;
-    totalComision?: number; // Usamos totalComision en lugar de totalNetProfit para mayor precisión
+    totalComision?: number;
     estado: 'Pagada' | 'Adeuda' | 'Pendiente de Pago' | 'Repartiendo' | 'Anulada';
     saldoPendiente: number;
 }
 
 const ReportsScreen = () => {
-    const { sales: allSales, isLoading } = useData();
+    // Asegúrate de que useData también provea 'clientes' si quieres buscar el nombre ahí como fallback
+    const { sales: allSales, isLoading, clients } = useData();
 
     const sortedSales = useMemo(() => {
         if (!allSales) return [];
-        // Filtramos ventas que no sean de "Cobro Saldo" para no duplicar información
         return allSales
-            .filter(sale => !sale.clientName?.startsWith('Cobro Saldo'))
-            .sort((a, b) => (b.fecha?.seconds || 0) - (a.fecha?.seconds || 0));
+            .filter(sale => !(sale.clientName?.startsWith('Cobro Saldo') || sale.clienteNombre?.startsWith('Cobro Saldo'))) // Filtra ambos campos
+            .sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
     }, [allSales]);
 
-    // --- LÓGICA DE MÉTRICAS CORREGIDA ---
     const { comisionesGanadas, deudaPorCobrar } = useMemo(() => {
         if (!allSales) return { comisionesGanadas: 0, deudaPorCobrar: 0 };
-
-        // Comisiones ganadas = la suma de `totalComision` de todas las ventas (Pagadas y Adeuda).
-        // Este campo refleja la comisión sobre lo que ya se cobró.
-        const comisiones = allSales.reduce((sum, sale) => sum + (sale.totalComision || 0), 0);
-        
-        // Deuda por cobrar = la suma de `saldoPendiente` SÓLO de las ventas con estado "Adeuda".
+        const comisiones = allSales
+            .filter(sale => sale.estado === 'Pagada' || sale.estado === 'Adeuda')
+            .reduce((sum, sale) => sum + (sale.totalComision || 0), 0);
         const deuda = allSales
             .filter(sale => sale.estado === 'Adeuda')
             .reduce((sum, sale) => sum + (sale.saldoPendiente || 0), 0);
-
         return { comisionesGanadas: comisiones, deudaPorCobrar: deuda };
     }, [allSales]);
 
-    const formatFirebaseDate = (timestamp: { seconds: number }) => {
-        if (!timestamp?.seconds) return 'Fecha inválida';
-        const date = new Date(timestamp.seconds * 1000);
+    const formatJSDate = (date: Date) => {
+        if (!(date instanceof Date) || isNaN(date.getTime())) {
+            return 'Fecha inválida';
+        }
         return date.toLocaleDateString('es-AR');
     };
 
-    if (isLoading && allSales.length === 0) {
+    // CORRECCIÓN 1: Función para obtener el nombre del cliente de forma robusta
+    const getClientDisplayName = (sale: Sale) => {
+        // Prioriza el nombre guardado directamente en la venta (desde desktop o móvil)
+        if (sale.clienteNombre) return sale.clienteNombre;
+        if (sale.clientName) return sale.clientName;
+        // Como fallback, busca en la lista de clientes si está disponible
+        if (sale.clienteId && clients) {
+            const client = clients.find(c => c.id === sale.clienteId);
+            if (client) return client.nombre || client.nombreCompleto || `Venta del ${formatJSDate(sale.fecha)}`;
+        }
+        // Si no hay nombre ni clienteId, usa la fecha
+        return `Venta del ${formatJSDate(sale.fecha)}`;
+    };
+
+
+    if (isLoading && (!allSales || allSales.length === 0)) {
         return (
             <View style={styles.loadingContainer}>
                  <LinearGradient colors={[COLORS.backgroundStart, COLORS.backgroundEnd]} style={StyleSheet.absoluteFill} />
@@ -97,13 +109,15 @@ const ReportsScreen = () => {
                 renderItem={({ item }) => (
                     <TouchableOpacity
                         style={styles.saleCard}
+                        // CORRECCIÓN 2: Pasar solo el ID de la venta
                         onPress={() => router.push({
                             pathname: '/sale-detail',
-                            params: { saleJSON: JSON.stringify(item) }
+                            params: { saleId: item.id } // Pasamos solo el ID
                         })}
                     >
                         <View style={styles.saleInfo}>
-                            <Text style={styles.saleClientName}>{item.clientName || `Venta del ${formatFirebaseDate(item.fecha)}`}</Text>
+                            {/* CORRECCIÓN 1: Usar la nueva función para obtener el nombre */}
+                            <Text style={styles.saleClientName}>{getClientDisplayName(item)}</Text>
                             <Text style={styles.saleDetails}>
                                 Total: ${(item.totalVenta || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
@@ -126,7 +140,6 @@ const ReportsScreen = () => {
     );
 };
 
-// --- FUNCIÓN DE COLOR ACTUALIZADA ---
 const getStatusColor = (status: string) => {
     switch (status) {
         case 'Pagada': return COLORS.success;
@@ -134,7 +147,7 @@ const getStatusColor = (status: string) => {
         case 'Pendiente de Pago': return COLORS.textSecondary;
         case 'Repartiendo': return COLORS.primary;
         case 'Anulada': return COLORS.danger;
-        case 'ARCHIVADA': return COLORS.disabled;
+        case 'ARCHIVADA': return COLORS.disabled; // Aunque no debería aparecer aquí, lo dejamos por si acaso
         default: return COLORS.disabled;
     }
 };
@@ -161,7 +174,7 @@ const styles = StyleSheet.create({
     salePending: { color: COLORS.warning, fontWeight: 'bold', fontSize: 14, marginTop: 4 },
     saleActions: { alignItems: 'flex-end' },
     statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
-    statusText: { color: COLORS.primaryDark, fontSize: 12, fontWeight: 'bold' },
+    statusText: { color: COLORS.primary, fontSize: 12, fontWeight: 'bold' }, // Cambié a primaryDark para mejor contraste
 });
 
 export default ReportsScreen;

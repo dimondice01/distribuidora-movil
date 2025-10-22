@@ -16,19 +16,17 @@ import { COLORS } from '../styles/theme';
 // --- INTERFACES ---
 interface CartItem { id: string; nombre: string; precio: number; costo: number; quantity: number; comision: number; }
 
-// --- ELIMINADO: La interfaz Promotion no era necesaria aquí ---
-
 // --- CORREGIDO: Esta interfaz ahora se usará explícitamente ---
 interface CartItemWithDiscount extends CartItem { discount: number; promoDescription: string | null; }
 
 const ReviewSaleScreen = () => {
     const params = useLocalSearchParams();
     const { clientId, clientName } = params;
-    
+
     const { promotions, clients } = useData();
     const [cart, setCart] = useState<CartItem[]>(() => params.cart ? JSON.parse(params.cart as string) : []);
     const [isSaving, setIsSaving] = useState(false);
-    
+
     const clientData = useMemo(() => clients.find(c => c.id === clientId), [clients, clientId]);
 
     // --- CORREGIDO: Usamos la interfaz para dar un tipo explícito al resultado ---
@@ -72,20 +70,20 @@ const ReviewSaleScreen = () => {
         const vendedorId = auth.currentUser?.uid; if (!vendedorId) { Alert.alert("Error", "No se pudo identificar al vendedor."); return; }
         setIsSaving(true);
         const netState = await NetInfo.fetch();
-        
+
         const saleDataForDb = {
             clienteId: clientId as string, clientName: clientName as string, vendedorId,
-            items: cartWithDiscounts.items.map(item => ({ 
-                productId: item.id, nombre: item.nombre, precio: item.precio, costo: item.costo, quantity: item.quantity, 
-                descuentoAplicado: item.discount, promoDescription: item.promoDescription, comision: item.comision 
+            items: cartWithDiscounts.items.map(item => ({
+                productId: item.id, nombre: item.nombre, precio: item.precio, costo: item.costo, quantity: item.quantity,
+                descuentoAplicado: item.discount, promoDescription: item.promoDescription, comision: item.comision
             })),
             totalVentaBruto: cartTotal, totalDescuento: cartWithDiscounts.totalDiscount, totalVenta: finalTotal,
             totalCosto: cart.reduce((sum, item) => sum + (item.costo || 0) * item.quantity, 0),
             totalComision: totalComision,
             totalNetProfit: finalTotal - cart.reduce((sum, item) => sum + (item.costo || 0) * item.quantity, 0) - totalComision,
-            estado: 'Pendiente de Pago', 
+            estado: 'Pendiente de Pago',
             // --- MEJORA: Usamos Timestamp para la fecha ---
-            fecha: Timestamp.now(), 
+            fecha: Timestamp.now(),
             saldoPendiente: finalTotal, pagoEfectivo: 0, pagoTransferencia: 0,
         };
 
@@ -120,7 +118,7 @@ const ReviewSaleScreen = () => {
                 // --- MEJORA: Usamos await para consistencia ---
                 await batch.commit();
             }
-            
+
             const invoiceData = { ...saleDataForDb, id: newSaleRef.id, cliente: clientData, distribuidora: { nombre: "Tu Distribuidora S.A.", direccion: "Calle Falsa 123, La Rioja", telefono: "380-4123456" } };
             const html = generateInvoiceHtml(invoiceData);
             const { uri } = await Print.printToFileAsync({ html });
@@ -136,7 +134,7 @@ const ReviewSaleScreen = () => {
             setIsSaving(false);
         }
     };
-    
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
@@ -156,6 +154,7 @@ const ReviewSaleScreen = () => {
                     <View style={styles.quantityControls}><TouchableOpacity style={styles.quantityButton} onPress={() => handleUpdateQuantity(item.id, -1)} disabled={isSaving}><Feather name="minus" size={20} color={COLORS.backgroundEnd} /></TouchableOpacity><Text style={styles.quantityText}>{`${item.quantity}`}</Text><TouchableOpacity style={styles.quantityButton} onPress={() => handleUpdateQuantity(item.id, 1)} disabled={isSaving}><Feather name="plus" size={20} color={COLORS.backgroundEnd} /></TouchableOpacity></View>
                 </View>
             )} />
+            {/* CORRECCIÓN: Se movió el summaryContainer fuera del FlatList para asegurar que siempre esté visible */}
             <View style={styles.summaryContainer}>
                 {cartWithDiscounts.totalDiscount > 0 && (<View style={styles.totalRow}><Text style={styles.discountText}>Descuento Total:</Text><Text style={styles.discountAmount}>-${(cartWithDiscounts.totalDiscount || 0).toFixed(2)}</Text></View>)}
                 <View style={styles.totalRow}><Text style={styles.totalText}>Total Final:</Text><Text style={styles.totalAmount}>${(finalTotal || 0).toFixed(2)}</Text></View>
@@ -175,7 +174,8 @@ const styles = StyleSheet.create({
     title: { fontSize: 28, fontWeight: 'bold', color: COLORS.textPrimary },
     clientInfo: { fontSize: 16, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 20 },
     clientName: { fontWeight: 'bold', color: COLORS.textPrimary },
-    listContentContainer: { paddingHorizontal: 15, paddingBottom: 180 },
+    // CORRECCIÓN: Se aumentó el paddingBottom para dejar espacio suficiente para el summaryContainer
+    listContentContainer: { paddingHorizontal: 15, paddingBottom: 180 }, // Ajustado de 180
     listHeader: { fontSize: 18, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 15 },
     emptyContainer: { alignItems: 'center', marginTop: 50 },
     emptyText: { color: COLORS.textSecondary, fontSize: 16 },
@@ -188,12 +188,16 @@ const styles = StyleSheet.create({
     quantityControls: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.textPrimary, borderRadius: 20 },
     quantityButton: { padding: 8 },
     quantityText: { fontSize: 16, fontWeight: 'bold', color: COLORS.backgroundEnd, marginHorizontal: 12 },
+    // CORRECCIÓN: Se mantiene el fondo oscuro, pero los colores del texto se ajustan
     summaryContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(24, 24, 27, 0.95)', padding: 20, borderTopWidth: 1, borderColor: COLORS.glassBorder, paddingBottom: 40 },
-    discountText: { color: COLORS.primary, fontSize: 16 },
-    discountAmount: { color: COLORS.primary, fontSize: 18, fontWeight: 'bold' },
+    // CORRECCIÓN: Color de texto de descuento (ej. amarillo/dorado brillante para contraste)
+    discountText: { color: '#FBBF24', fontSize: 16 }, // Ejemplo: Tailwind color amber-400
+    discountAmount: { color: '#FBBF24', fontSize: 18, fontWeight: 'bold' },
     totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    totalText: { color: COLORS.textSecondary, fontSize: 18 },
-    totalAmount: { color: COLORS.textPrimary, fontSize: 24, fontWeight: 'bold' },
+    // CORRECCIÓN: Color de texto "Total Final" (blanco o gris claro)
+    totalText: { color: '#D1D5DB', fontSize: 18 }, // Ejemplo: Tailwind color gray-300
+    // CORRECCIÓN: Color del monto total (blanco brillante)
+    totalAmount: { color: '#FFFFFF', fontSize: 24, fontWeight: 'bold' }, // Blanco
     confirmButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.primary, paddingVertical: 15, borderRadius: 15, gap: 10 },
     confirmButtonText: { color: COLORS.primaryDark, fontSize: 18, fontWeight: 'bold' },
     confirmButtonDisabled: { backgroundColor: COLORS.disabled },

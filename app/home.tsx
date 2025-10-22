@@ -2,41 +2,81 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, router } from 'expo-router';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { useData } from '../context/DataContext'; // Assuming this path is correct
 import { auth } from '../db/firebase-service';
 import { COLORS } from '../styles/theme';
 
+// Define a basic type for context, acknowledging refreshAllData might exist
+// Ideally, you should import the actual IDataContext type from your context file
+interface IDataContextWithRefresh {
+    refreshAllData?: () => Promise<void>; // Make it optional for safety
+    // Include other properties from your actual IDataContext here
+    [key: string]: any; // Allows for other properties not explicitly defined
+}
+
+
 const HomeScreen = () => {
     const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    // Use the potentially enhanced context type
+    const { refreshAllData } = useData() as IDataContextWithRefresh; // Cast to include refreshAllData
 
     // --- GUARDIÁN DE RUTA ---
-    // Este useEffect se asegura de que solo un usuario logueado pueda ver esta pantalla.
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
-                // Si hay un usuario, permitimos que la pantalla se muestre.
                 setIsLoading(false);
             } else {
-                // Si no hay usuario (sesión cerrada o expirada), lo expulsamos al login.
                 router.replace('/');
             }
         });
-        // Limpiamos el listener al salir de la pantalla para evitar fugas de memoria.
         return () => unsubscribe();
     }, []);
 
     const handleLogout = async () => {
         try {
             await signOut(auth);
-            // El listener de arriba detectará el cambio y redirigirá automáticamente.
         } catch (error) {
             console.error("Error during logout: ", error);
             Alert.alert('Error', 'No se pudo cerrar la sesión.');
         }
     };
 
-    // Mientras se verifica la sesión, mostramos una pantalla de carga.
+    // --- FUNCIÓN DE REFRESH ---
+    const onRefresh = useCallback(async () => {
+        // Check if the function exists before calling it
+        if (typeof refreshAllData !== 'function') {
+            console.warn("DataContext does not provide refreshAllData function.");
+            Alert.alert('Funcionalidad no disponible', 'La actualización manual no está implementada.');
+            setIsRefreshing(false); // Ensure refreshing indicator stops
+            return;
+        }
+
+        setIsRefreshing(true);
+        try {
+            await refreshAllData();
+            Alert.alert('Sincronizado', 'Los datos se actualizaron correctamente.');
+        } catch (error) {
+            console.error("Error during data refresh: ", error);
+            Alert.alert('Error', 'No se pudieron actualizar los datos.');
+        } finally {
+            setIsRefreshing(false);
+        }
+    }, [refreshAllData]); // Dependency array still includes the potentially undefined function
+
     if (isLoading) {
         return (
             <View style={styles.loadingContainer}>
@@ -46,7 +86,6 @@ const HomeScreen = () => {
         );
     }
 
-    // Si la sesión es válida, mostramos el contenido de la pantalla.
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" />
@@ -64,7 +103,18 @@ const HomeScreen = () => {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            {/* --- SCROLLVIEW CON REFRESH CONTROL --- */}
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={onRefresh}
+                        tintColor={COLORS.primary}
+                        colors={[COLORS.primary]}
+                    />
+                }
+            >
                 <View style={styles.gridContainer}>
                     <Link href="/select-client-for-sale" asChild>
                         <TouchableOpacity style={styles.gridButton}>
@@ -102,6 +152,7 @@ const HomeScreen = () => {
                             <Text style={styles.gridButtonText}>Promociones</Text>
                         </TouchableOpacity>
                     </Link>
+                    {/* Puedes añadir más botones si es necesario */}
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -129,7 +180,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingTop: 20,
+        paddingTop: 20, // Ajustado para SafeAreaView
         paddingHorizontal: 20,
         marginBottom: 30,
     },
@@ -151,6 +202,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: 15,
+        paddingBottom: 20, // Añadir padding al final si es necesario
     },
     gridContainer: {
         flexDirection: 'row',
@@ -158,13 +210,13 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     gridButton: {
-        width: '48%',
-        aspectRatio: 1,
+        width: '48%', // Asegura 2 columnas
+        aspectRatio: 1, // Mantiene el botón cuadrado
         backgroundColor: COLORS.glass,
         borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: '4%',
+        marginBottom: '4%', // Espacio entre filas
         borderWidth: 1,
         borderColor: COLORS.glassBorder,
     },

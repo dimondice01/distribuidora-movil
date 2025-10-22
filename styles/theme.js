@@ -1,25 +1,34 @@
-// Paleta de colores moderna y profesional para la aplicación móvil.
+// Paleta de colores clara y profesional con acentos amarillos.
 
 export const COLORS = {
-  // Fondo: Un degradado sutil de azul noche profundo.
-  backgroundStart: '#1C2541', // Un azul oscuro y rico
-  backgroundEnd: '#0B132B',   // Un azul casi negro, muy profundo
+  // Fondo: Blanco o un gris muy claro para máxima limpieza.
+  backgroundStart: '#FFFFFF', // Blanco puro
+  backgroundEnd: '#F7F7F7',   // Un gris muy sutil
 
-  // Color Primario: Un turquesa vibrante y moderno, excelente para interacciones.
-  primary: '#1BC9C0',
-  primaryDark: '#0B132B',   // Texto oscuro para alto contraste sobre el turquesa
+  // Color Primario: Un amarillo cálido pero profesional.
+  primary: '#FFC107',       // Amarillo ámbar (similar al de advertencia, pero lo usamos como principal)
+  primaryDark: '#B8860B',   // Un amarillo más oscuro/dorado para contraste o énfasis
 
-  // Texto: Blancos y grises claros para una legibilidad perfecta sobre el fondo oscuro.
-  textPrimary: '#F8FAFC',    // Blanco puro para títulos y texto importante
-  textSecondary: '#A0AEC0',   // Gris claro para subtítulos y texto secundario
+  // Texto: Tonos oscuros para legibilidad sobre fondo claro.
+  textPrimary: '#1A202C',    // Casi negro (Gris oscuro azulado)
+  textSecondary: '#718096',   // Gris medio
 
-  // Componentes "Glass" (Glassmorphism): Un efecto de vidrio esmerilado.
-  glass: 'rgba(255, 255, 255, 0.05)',
-  glassBorder: 'rgba(255, 255, 255, 0.15)',
+  // Blanco (para textos sobre fondos oscuros o de color)
+  white: '#FFFFFF',
 
-  // Colores de Estado: Vivos y claros para una comunicación visual efectiva.
+  // Componentes "Glass" adaptados a tema claro: Sutiles grises transparentes.
+  // Podrías ajustar la opacidad según prefieras.
+  glass: 'rgba(240, 240, 240, 0.6)', // Gris claro semi-transparente
+  glassBorder: 'rgba(200, 200, 200, 0.4)', // Borde gris más sutil
+
+  // Colores de Estado: Mantenemos los estándar, buen contraste en fondo claro.
   success: '#28A745',       // Verde éxito
-  warning: '#FFC107',       // Amarillo advertencia
+  warning: '#FFA000',       // Naranja/Amarillo advertencia (un poco más naranja que el primario)
   danger: '#DC3545',        // Rojo peligro
-  disabled: '#3A506B',      // Un azul grisáceo para elementos deshabilitados
+  disabled: '#A0AEC0',      // Gris claro para elementos deshabilitados (similar a textSecondary)
 };
+
+// NOTA:
+// - primaryDark ahora es un amarillo oscuro. Asegúrate de que los textos sobre él sean blancos (COLORS.white).
+// - textPrimary y textSecondary son oscuros para leerse bien sobre backgroundStart/End.
+// - Los colores 'glass' ahora son claros/grises. El texto DENTRO de componentes glass deberá ser oscuro (textPrimary/textSecondary).

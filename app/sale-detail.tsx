@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     promoText: { color: COLORS.success, fontSize: 13, fontStyle: 'italic', marginTop: 4 },
     itemSubtotal: { color: COLORS.textPrimary, fontSize: 16, fontWeight: 'bold' },
     
-    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(24, 24, 27, 0.95)', borderTopWidth: 1, borderColor: COLORS.glassBorder, paddingBottom: 40 },
+    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(0, 0, 0, 0.95)', borderTopWidth: 1, borderColor: COLORS.glassBorder, paddingBottom: 40 },
     actionButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.primary, paddingVertical: 15, borderRadius: 15, gap: 10 },
     actionButtonText: { color: COLORS.primaryDark, fontSize: 18, fontWeight: 'bold' },
 

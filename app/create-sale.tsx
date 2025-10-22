@@ -17,7 +17,7 @@ interface Vendedor { id: string; nombreCompleto: string; }
 const CreateSaleScreen = () => {
     const { clientId, clientName } = useLocalSearchParams();
     const { products: allProducts, categories, promotions, vendors, isLoading: isDataLoading } = useData();
-    
+
     const currentUser = auth.currentUser;
     const currentVendedor = useMemo(() => {
         if (!currentUser || !vendors) return null;
@@ -59,15 +59,15 @@ const CreateSaleScreen = () => {
         setQuantityInput('1');
         setIsModalVisible(true);
     };
-    
+
     const closeQuantityModal = () => { setIsModalVisible(false); setSelectedProduct(null); };
-    
+
     const handleConfirmAddToCart = () => {
         if (!selectedProduct) return;
         const quantity = parseInt(quantityInput, 10);
         if (isNaN(quantity) || quantity <= 0) { Alert.alert('Error', 'Cantidad inválida.'); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); return; }
         if (selectedProduct.stock !== undefined && quantity > selectedProduct.stock) { Alert.alert('Stock Insuficiente', `Solo quedan ${selectedProduct.stock} unidades.`); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); return; }
-        
+
         handleAddToCart(selectedProduct, quantity);
         closeQuantityModal();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -98,15 +98,15 @@ const CreateSaleScreen = () => {
             Alert.alert("Error", "Faltan datos del cliente o vendedor para continuar. Por favor, reinicia la sesión.");
             return;
         }
-        router.push({ 
-            pathname: '/review-sale', 
-            params: { 
-                clientId: clientId as string, 
-                clientName: clientName as string, 
+        router.push({
+            pathname: '/review-sale',
+            params: {
+                clientId: clientId as string,
+                clientName: clientName as string,
                 cart: JSON.stringify(cart),
                 vendedorId: currentUser.uid,
                 vendedorNombre: currentVendedor.nombreCompleto
-            } 
+            }
         });
     };
 
@@ -168,9 +168,22 @@ const CreateSaleScreen = () => {
                     }}
                 />
             )}
-            
-            {cart.length > 0 && ( <View style={styles.cartSummary}><View><Text style={styles.cartText}>{`${cart.length} ítem(s)`}</Text><Text style={styles.cartTotal}>Total (aprox): ${cartTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text></View><TouchableOpacity style={styles.checkoutButton} onPress={handleReviewSale}><Text style={styles.checkoutButtonText}>Revisar Venta</Text><Feather name="arrow-right" size={20} color={COLORS.primaryDark} /></TouchableOpacity></View> )}
-            
+
+            {cart.length > 0 && (
+                 <View style={styles.cartSummary}>
+                     <View>
+                         {/* CORRECCIÓN: Se cambió el color del texto a blanco para mejor contraste */}
+                         <Text style={styles.cartText}>{`${cart.length} ítem(s)`}</Text>
+                         {/* CORRECCIÓN: Se cambió el color del texto a blanco para mejor contraste */}
+                         <Text style={styles.cartTotal}>Total (aprox): ${cartTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                     </View>
+                     <TouchableOpacity style={styles.checkoutButton} onPress={handleReviewSale}>
+                         <Text style={styles.checkoutButtonText}>Revisar Venta</Text>
+                         <Feather name="arrow-right" size={20} color={COLORS.primaryDark} />
+                     </TouchableOpacity>
+                 </View>
+            )}
+
             <Modal transparent={true} visible={isModalVisible} animationType="fade" onRequestClose={closeQuantityModal}>
                 <View style={styles.modalOverlay}><View style={styles.modalContent}><Text style={styles.modalTitle}>Ingresar Cantidad</Text><Text style={styles.modalProduct}>{selectedProduct?.nombre || ''}</Text><TextInput style={styles.modalInput} keyboardType="numeric" value={quantityInput} onChangeText={setQuantityInput} placeholder="Ej: 5" autoFocus={true}/><View style={styles.modalButtons}><TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={closeQuantityModal}><Text style={styles.cancelButtonText}>Cancelar</Text></TouchableOpacity><TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={handleConfirmAddToCart}><Text style={styles.confirmButtonText}>Añadir</Text></TouchableOpacity></View></View></View>
             </Modal>
@@ -207,14 +220,17 @@ const styles = StyleSheet.create({
     productStock: { fontSize: 12, marginTop: 5, fontWeight: '500' },
     addButton: { backgroundColor: COLORS.primary, padding: 10, borderRadius: 25 },
     addButtonDisabled: { backgroundColor: COLORS.disabled, opacity: 0.6 },
-    cartSummary: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(24, 24, 27, 0.95)', padding: 20, paddingTop: 15, borderTopWidth: 1, borderColor: COLORS.glassBorder, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 40 },
-    cartText: { color: COLORS.textSecondary, fontSize: 16 },
-    cartTotal: { color: COLORS.textPrimary, fontSize: 20, fontWeight: 'bold' },
+    // CORRECCIÓN: Se ajustó el backgroundColor para una mejor opacidad si es necesario, pero el cambio principal es en cartText y cartTotal.
+    cartSummary: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(55, 65, 81, 0.9)', /* Un gris oscuro semi-transparente como ejemplo */ padding: 20, paddingTop: 15, borderTopWidth: 1, borderColor: COLORS.glassBorder, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 40 },
+    // CORRECCIÓN: Color cambiado a blanco (#FFFFFF o COLORS.textPrimary si es claro)
+    cartText: { color: '#FFFFFF', fontSize: 16 },
+    // CORRECCIÓN: Color cambiado a blanco (#FFFFFF o COLORS.textPrimary si es claro)
+    cartTotal: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
     checkoutButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 15, gap: 8 },
     checkoutButtonText: { color: COLORS.primaryDark, fontWeight: 'bold', fontSize: 16 },
-    modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.6)' },
+    modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.6)' /* Overlay más oscuro */ },
     modalContent: { width: '85%', backgroundColor: '#FFFFFF', borderRadius: 15, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2, }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
-    modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 5, color: COLORS.primaryDark },
+    modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 5, color: COLORS.backgroundEnd }, // Asegúrate que backgroundEnd sea legible en fondo blanco
     modalProduct: { fontSize: 16, color: '#4B5563', marginBottom: 15, textAlign: 'center' },
     modalInput: { width: '100%', borderColor: '#D1D5DB', borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 18, textAlign: 'center', marginBottom: 20 },
     modalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
