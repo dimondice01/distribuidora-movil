@@ -22,16 +22,16 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.dimondice.Distribuidora",
       
-      "// --- 1. AÑADIDO: REFERENCIA AL ARCHIVO DE CONFIGURACIÓN DE FIREBASE ---": {},
+      
       "googleServicesFile": "./google-services.json",
 
-      "// --- 2. AÑADIDO: PERMISOS DE UBICACIÓN ---": {},
+      
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
       
-      "// --- 3. AÑADIDO: CONFIGURACIÓN PARA GOOGLE MAPS ---": {},
+      
       "config": {
         "googleMaps": {
           "apiKey": "AQUÍ_VA_TU_API_KEY_CUANDO_LA_TENGAS"

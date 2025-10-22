@@ -1,34 +1,37 @@
-// Paleta de colores clara y profesional con acentos amarillos.
+// Paleta de colores de vanguardia: Ligera, energética (amarillo) y de alto contraste.
 
 export const COLORS = {
-  // Fondo: Blanco o un gris muy claro para máxima limpieza.
-  backgroundStart: '#FFFFFF', // Blanco puro
-  backgroundEnd: '#F7F7F7',   // Un gris muy sutil
+  // Fondo: Blanco y un gris "hueso" muy claro para una sensación limpia y moderna.
+  backgroundStart: '#e3ebffff', // Blanco puro
+  backgroundEnd: '#cbb0f7ff',   // Un gris casi blanco, muy sutil
 
-  // Color Primario: Un amarillo cálido pero profesional.
-  primary: '#FFC107',       // Amarillo ámbar (similar al de advertencia, pero lo usamos como principal)
-  primaryDark: '#B8860B',   // Un amarillo más oscuro/dorado para contraste o énfasis
+  // Color Primario: Un amarillo vibrante y moderno, no un ámbar estándar.
+  primary: '#FDE047',       // Amarillo "Limón" vibrante (Tailwind 'yellow-400')
+  
+  // Contraste Primario: Un color oscuro para el texto DENTRO de los botones primarios.
+  // Usamos un gris/azul muy oscuro para máximo contraste sobre el amarillo.
+  primaryDark: '#1E293B',   // Azul/Gris oscuro (Tailwind 'slate-800')
 
-  // Texto: Tonos oscuros para legibilidad sobre fondo claro.
-  textPrimary: '#1A202C',    // Casi negro (Gris oscuro azulado)
-  textSecondary: '#718096',   // Gris medio
+  // Texto: Tonos de gris muy oscuros para una legibilidad nítida.
+  textPrimary: '#000000ff',    // Casi negro, muy contrastado (Tailwind 'gray-900')
+  textSecondary: '#404550ff',   // Gris medio, legible (Tailwind 'gray-500')
 
   // Blanco (para textos sobre fondos oscuros o de color)
   white: '#FFFFFF',
 
-  // Componentes "Glass" adaptados a tema claro: Sutiles grises transparentes.
-  // Podrías ajustar la opacidad según prefieras.
-  glass: 'rgba(240, 240, 240, 0.6)', // Gris claro semi-transparente
-  glassBorder: 'rgba(200, 200, 200, 0.4)', // Borde gris más sutil
+  // Componentes "Glass": Un efecto "esmerilado" limpio y moderno.
+  glass: 'rgba(250, 250, 250, 0.75)', // Un blanco "hueso" semi-transparente
+  glassBorder: 'rgba(229, 231, 235, 0.6)', // Un borde gris claro sutil
 
-  // Colores de Estado: Mantenemos los estándar, buen contraste en fondo claro.
-  success: '#28A745',       // Verde éxito
-  warning: '#FFA000',       // Naranja/Amarillo advertencia (un poco más naranja que el primario)
-  danger: '#DC3545',        // Rojo peligro
-  disabled: '#A0AEC0',      // Gris claro para elementos deshabilitados (similar a textSecondary)
+  // Colores de Estado: Estándar para usabilidad, buen contraste en fondo claro.
+  success: '#22C55E',       // Verde éxito (más vibrante)
+  warning: '#F59E0B',       // Naranja/Ámbar advertencia
+  danger: '#EF4444',        // Rojo peligro (más vibrante)
+  disabled: '#9CA3AF',      // Gris para elementos deshabilitados (Tailwind 'gray-400')
 };
 
-// NOTA:
-// - primaryDark ahora es un amarillo oscuro. Asegúrate de que los textos sobre él sean blancos (COLORS.white).
-// - textPrimary y textSecondary son oscuros para leerse bien sobre backgroundStart/End.
-// - Los colores 'glass' ahora son claros/grises. El texto DENTRO de componentes glass deberá ser oscuro (textPrimary/textSecondary).
+// NOTA DE IMPLEMENTACIÓN:
+// - 'primary' es el fondo de los botones principales.
+// - 'primaryDark' es el color del texto para esos botones (ej. "Revisar Venta").
+// - 'textPrimary' y 'textSecondary' son los colores de texto para la app en general.
+// - Los componentes 'glass' ahora son más claros y "esmerilados".

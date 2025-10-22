@@ -2,11 +2,13 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, router } from 'expo-router';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react'; // Importa useCallback
 import {
     ActivityIndicator,
     Alert,
-    RefreshControl,
+    RefreshControl // Importa RefreshControl
+    ,
+
     SafeAreaView,
     ScrollView,
     StatusBar,
@@ -15,68 +17,66 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { useData } from '../context/DataContext'; // Assuming this path is correct
+import { useData } from '../context/DataContext'; // Importa useData y la interfaz IDataContext
 import { auth } from '../db/firebase-service';
 import { COLORS } from '../styles/theme';
 
-// Define a basic type for context, acknowledging refreshAllData might exist
-// Ideally, you should import the actual IDataContext type from your context file
-interface IDataContextWithRefresh {
-    refreshAllData?: () => Promise<void>; // Make it optional for safety
-    // Include other properties from your actual IDataContext here
-    [key: string]: any; // Allows for other properties not explicitly defined
-}
-
-
 const HomeScreen = () => {
     const [isLoading, setIsLoading] = useState(true);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    // Use the potentially enhanced context type
-    const { refreshAllData } = useData() as IDataContextWithRefresh; // Cast to include refreshAllData
+    const [isRefreshing, setIsRefreshing] = useState(false); // Estado para el RefreshControl
+    // Obtén la función de refresco del contexto
+    const { refreshAllData } = useData();
 
     // --- GUARDIÁN DE RUTA ---
+    // Este useEffect asegura que solo un usuario logueado pueda ver esta pantalla.
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
+                // Si hay un usuario, permite que la pantalla se muestre.
                 setIsLoading(false);
             } else {
+                // Si no hay usuario, lo expulsa al login.
                 router.replace('/');
             }
         });
+        // Limpia el listener al salir de la pantalla.
         return () => unsubscribe();
     }, []);
 
     const handleLogout = async () => {
         try {
             await signOut(auth);
+            // El listener de arriba detectará el cambio y redirigirá.
         } catch (error) {
-            console.error("Error during logout: ", error);
+            console.error("Error al cerrar sesión: ", error);
             Alert.alert('Error', 'No se pudo cerrar la sesión.');
         }
     };
 
     // --- FUNCIÓN DE REFRESH ---
     const onRefresh = useCallback(async () => {
-        // Check if the function exists before calling it
+        // Verifica si la función existe antes de llamarla (buena práctica)
         if (typeof refreshAllData !== 'function') {
-            console.warn("DataContext does not provide refreshAllData function.");
-            Alert.alert('Funcionalidad no disponible', 'La actualización manual no está implementada.');
-            setIsRefreshing(false); // Ensure refreshing indicator stops
+            console.warn("DataContext no proporciona la función refreshAllData.");
+            Alert.alert('Funcionalidad no disponible', 'La actualización manual no está implementada en el contexto.');
+            setIsRefreshing(false); // Asegúrate de detener el indicador
             return;
         }
 
-        setIsRefreshing(true);
+        setIsRefreshing(true); // Muestra el indicador de carga
         try {
+            // Llama a la función del DataContext para recargar los datos
             await refreshAllData();
             Alert.alert('Sincronizado', 'Los datos se actualizaron correctamente.');
         } catch (error) {
-            console.error("Error during data refresh: ", error);
+            console.error("Error durante la actualización de datos: ", error);
             Alert.alert('Error', 'No se pudieron actualizar los datos.');
         } finally {
-            setIsRefreshing(false);
+            setIsRefreshing(false); // Oculta el indicador de carga
         }
-    }, [refreshAllData]); // Dependency array still includes the potentially undefined function
+    }, [refreshAllData]); // El array de dependencias incluye la función de refresco
 
+    // Muestra pantalla de carga mientras se verifica la sesión.
     if (isLoading) {
         return (
             <View style={styles.loadingContainer}>
@@ -86,6 +86,7 @@ const HomeScreen = () => {
         );
     }
 
+    // Muestra el contenido si la sesión es válida.
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" />
@@ -106,15 +107,16 @@ const HomeScreen = () => {
             {/* --- SCROLLVIEW CON REFRESH CONTROL --- */}
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={
+                refreshControl={ // Añade la prop refreshControl
                     <RefreshControl
-                        refreshing={isRefreshing}
-                        onRefresh={onRefresh}
-                        tintColor={COLORS.primary}
-                        colors={[COLORS.primary]}
+                        refreshing={isRefreshing} // Controlado por el estado
+                        onRefresh={onRefresh} // Función que se ejecuta al deslizar
+                        tintColor={COLORS.primary} // Color del spinner (iOS)
+                        colors={[COLORS.primary]} // Color del spinner (Android)
                     />
                 }
             >
+                {/* Contenido de la pantalla (botones de navegación) */}
                 <View style={styles.gridContainer}>
                     <Link href="/select-client-for-sale" asChild>
                         <TouchableOpacity style={styles.gridButton}>
@@ -152,13 +154,14 @@ const HomeScreen = () => {
                             <Text style={styles.gridButtonText}>Promociones</Text>
                         </TouchableOpacity>
                     </Link>
-                    {/* Puedes añadir más botones si es necesario */}
+                    {/* Puedes añadir más botones aquí si es necesario */}
                 </View>
             </ScrollView>
         </SafeAreaView>
     );
 };
 
+// --- ESTILOS (sin cambios respecto a la versión anterior) ---
 const styles = StyleSheet.create({
     container: {
         flex: 1,
