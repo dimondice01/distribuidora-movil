@@ -50,12 +50,22 @@ const ClientListScreen = () => {
     // Ordenación de Zonas
     const sortedAvailableZones = useMemo(() => {
         const zones = Array.isArray(availableZones) ? availableZones : [];
-        return [...zones].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+        return [...zones]
+            // --- CORRECIÓN ANTI-CRASH ---
+            // Filtra cualquier zona que sea nula o no tenga ID
+            .filter(z => z && z.id) 
+            .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
     }, [availableZones]);
 
     // Filtrado y Ordenación de Clientes
     const filteredClients = useMemo(() => {
         let clientsToFilter = Array.isArray(allClients) ? allClients : [];
+
+        // --- CORRECIÓN ANTI-CRASH ---
+        // Filtra clientes nulos o sin ID al inicio.
+        // Esto evita crashes en el keyExtractor de la FlatList y en los filtros.
+        clientsToFilter = clientsToFilter.filter(c => c && c.id);
+
         if (zonaFilter) {
             clientsToFilter = clientsToFilter.filter(c => c.zonaId === zonaFilter);
         }
@@ -147,16 +157,16 @@ const ClientListScreen = () => {
                             <Picker.Item
                                 label="Todas las Zonas"
                                 value=""
-                                // CORRECCIÓN: Forzar color oscuro en el item, puede que necesites ajustar el valor exacto
+                                // CORRECIÓN: Forzar color oscuro en el item, puede que necesites ajustar el valor exacto
                                 color={Platform.OS === 'android' ? COLORS.textSecondary : COLORS.textSecondary}
                                 style={styles.pickerItemAndroid} // Aplicar estilo Android aquí también si es necesario
                              />
                             {sortedAvailableZones.map((z: Zone) => (
                                 <Picker.Item
-                                    key={z.id}
-                                    label={z.nombre}
+                                    key={z.id} // Esto es seguro gracias al filtro en sortedAvailableZones
+                                    label={z.nombre || 'Zona sin nombre'} // Fallback por si acaso
                                     value={z.id}
-                                    // CORRECCIÓN: Forzar color oscuro en los items
+                                    // CORRECIÓN: Forzar color oscuro en los items
                                     color={Platform.OS === 'android' ? COLORS.primaryDark : COLORS.primaryDark} // Usar un color oscuro definido en tu tema o '#333333'
                                     style={styles.pickerItemAndroid} // Aplicar estilo Android si es necesario
                                 />
@@ -182,7 +192,7 @@ const ClientListScreen = () => {
 
             <FlatList
                 data={filteredClients}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => item.id} // Esto es seguro gracias al filtro en filteredClients
                 contentContainerStyle={styles.listContentContainer}
                 refreshControl={
                     <RefreshControl
@@ -214,7 +224,9 @@ const ClientListScreen = () => {
                         activeOpacity={0.8}
                     >
                         <View style={styles.cardInfo}>
-                            <Text style={styles.cardTitle} numberOfLines={1}>{item.nombre || item.nombreCompleto}</Text>
+                            {/* --- CORRECIÓN ANTI-CRASH --- */}
+                            {/* Asegura un fallback si ambos nombres faltan */}
+                            <Text style={styles.cardTitle} numberOfLines={1}>{item.nombre || item.nombreCompleto || 'Cliente Sin Nombre'}</Text>
                             {item.direccion ? <Text style={styles.cardSubtitle} numberOfLines={1}>{item.direccion}</Text> : null}
                         </View>
                         <TouchableOpacity

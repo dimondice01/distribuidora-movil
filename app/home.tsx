@@ -1,15 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link, router } from 'expo-router';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import React, { useCallback, useEffect, useState } from 'react'; // Importa useCallback
+import { router } from 'expo-router';
+import { signOut } from 'firebase/auth';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    RefreshControl // Importa RefreshControl
-    ,
-
-    SafeAreaView,
+    FlatList,
+    RefreshControl,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -17,184 +15,297 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { useData } from '../context/DataContext'; // Importa useData y la interfaz IDataContext
+// --- CORRECCIÓN: Importamos las interfaces desde DataContext ---
+import { Sale, useData, Vendor } from '../context/DataContext';
 import { auth } from '../db/firebase-service';
 import { COLORS } from '../styles/theme';
 
-const HomeScreen = () => {
-    const [isLoading, setIsLoading] = useState(true);
-    const [isRefreshing, setIsRefreshing] = useState(false); // Estado para el RefreshControl
-    // Obtén la función de refresco del contexto
-    const { refreshAllData } = useData();
+// --- Interfaces locales eliminadas (ahora importadas) ---
 
-    // --- GUARDIÁN DE RUTA ---
-    // Este useEffect asegura que solo un usuario logueado pueda ver esta pantalla.
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // Si hay un usuario, permite que la pantalla se muestre.
-                setIsLoading(false);
-            } else {
-                // Si no hay usuario, lo expulsa al login.
-                router.replace('/');
+const HomeScreen = () => {
+    const { 
+        sales, 
+        vendors, 
+        isLoading: isDataLoading, 
+        refreshAllData 
+    } = useData();
+    
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const currentVendedor = useMemo(() => {
+        const currentUser = auth.currentUser;
+        if (!currentUser || !vendors || vendors.length === 0) return null;
+        return vendors.find((v: Vendor) => v.id === currentUser.uid);
+    }, [vendors]);
+
+    // --- Obtener últimas 5 ventas ---
+    const recentSales = useMemo(() => {
+        const getDate = (sale: Sale) => {
+            if (sale.fecha instanceof Date) {
+                return sale.fecha.getTime();
             }
-        });
-        // Limpia el listener al salir de la pantalla.
-        return () => unsubscribe();
-    }, []);
+            return (sale.fecha?.seconds || 0) * 1000; 
+        };
+        return [...sales]
+            .sort((a, b) => getDate(b) - getDate(a))
+            .slice(0, 5);
+    }, [sales]);
+
+    const onRefresh = useCallback(async () => {
+        setIsRefreshing(true);
+        try {
+            await refreshAllData();
+        } catch (error) {
+            console.error("Error en pull-to-refresh:", error);
+            Alert.alert("Error", "No se pudieron actualizar los datos.");
+        } finally {
+            setIsRefreshing(false);
+        }
+    }, [refreshAllData]);
 
     const handleLogout = async () => {
+        Alert.alert(
+            "Cerrar Sesión",
+            "¿Estás seguro de que quieres salir?",
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Salir",
+                    style: "destructive",
+                    onPress: async () => {
+                        setIsLoggingOut(true);
+                        try {
+                            await signOut(auth);
+                        } catch (error) {
+                            console.error("Error al cerrar sesión:", error);
+                            Alert.alert("Error", "No se pudo cerrar la sesión.");
+                            setIsLoggingOut(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    // --- Funciones auxiliares de formato ---
+    const formatCurrency = (value: number) => {
+        return `$${value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
+    const formatDate = (date: Sale['fecha']) => {
         try {
-            await signOut(auth);
-            // El listener de arriba detectará el cambio y redirigirá.
-        } catch (error) {
-            console.error("Error al cerrar sesión: ", error);
-            Alert.alert('Error', 'No se pudo cerrar la sesión.');
+            let d: Date;
+            if (date instanceof Date) {
+                d = date;
+            } else {
+                d = new Date((date?.seconds || 0) * 1000);
+            }
+            if (isNaN(d.getTime())) {
+                return 'Fecha inválida';
+            }
+            return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+        } catch (e) {
+            return "Fecha errónea";
         }
     };
 
-    // --- FUNCIÓN DE REFRESH ---
-    const onRefresh = useCallback(async () => {
-        // Verifica si la función existe antes de llamarla (buena práctica)
-        if (typeof refreshAllData !== 'function') {
-            console.warn("DataContext no proporciona la función refreshAllData.");
-            Alert.alert('Funcionalidad no disponible', 'La actualización manual no está implementada en el contexto.');
-            setIsRefreshing(false); // Asegúrate de detener el indicador
-            return;
-        }
+    // --- RENDERIZADO ---
 
-        setIsRefreshing(true); // Muestra el indicador de carga
-        try {
-            // Llama a la función del DataContext para recargar los datos
-            await refreshAllData();
-            Alert.alert('Sincronizado', 'Los datos se actualizaron correctamente.');
-        } catch (error) {
-            console.error("Error durante la actualización de datos: ", error);
-            Alert.alert('Error', 'No se pudieron actualizar los datos.');
-        } finally {
-            setIsRefreshing(false); // Oculta el indicador de carga
-        }
-    }, [refreshAllData]); // El array de dependencias incluye la función de refresco
-
-    // Muestra pantalla de carga mientras se verifica la sesión.
-    if (isLoading) {
+    if (isDataLoading) {
         return (
-            <View style={styles.loadingContainer}>
+            <View style={styles.fullScreenLoader}>
                 <LinearGradient colors={[COLORS.backgroundStart, COLORS.backgroundEnd]} style={styles.background} />
                 <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Cargando datos...</Text>
+            </View>
+        );
+    }
+    
+    if (isLoggingOut) {
+         return (
+            <View style={styles.fullScreenLoader}>
+                <LinearGradient colors={[COLORS.backgroundStart, COLORS.backgroundEnd]} style={styles.background} />
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Cerrando sesión...</Text>
             </View>
         );
     }
 
-    // Muestra el contenido si la sesión es válida.
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" />
-            <LinearGradient
-                colors={[COLORS.backgroundStart, COLORS.backgroundEnd]}
-                style={styles.background}
-            />
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.greeting}>Hola,</Text>
-                    <Text style={styles.userName}>{auth.currentUser?.email?.split('@')[0] || 'Vendedor'} 👋</Text>
-                </View>
-                <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-                    <Feather name="log-out" size={22} color={COLORS.primary} />
-                </TouchableOpacity>
-            </View>
-
-            {/* --- SCROLLVIEW CON REFRESH CONTROL --- */}
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundStart} />
+            <LinearGradient colors={[COLORS.backgroundStart, COLORS.backgroundEnd]} style={styles.background} />
+            
             <ScrollView
+                showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={ // Añade la prop refreshControl
+                refreshControl={
                     <RefreshControl
-                        refreshing={isRefreshing} // Controlado por el estado
-                        onRefresh={onRefresh} // Función que se ejecuta al deslizar
-                        tintColor={COLORS.primary} // Color del spinner (iOS)
-                        colors={[COLORS.primary]} // Color del spinner (Android)
+                        refreshing={isRefreshing}
+                        onRefresh={onRefresh}
+                        colors={[COLORS.primary]}
+                        tintColor={COLORS.primary}
                     />
                 }
             >
-                {/* Contenido de la pantalla (botones de navegación) */}
-                <View style={styles.gridContainer}>
-                    <Link href="/select-client-for-sale" asChild>
-                        <TouchableOpacity style={styles.gridButton}>
-                            <Feather name="shopping-cart" size={32} color={COLORS.primary} />
-                            <Text style={styles.gridButtonText}>Crear Venta</Text>
-                        </TouchableOpacity>
-                    </Link>
-                    <Link href="/client-map" asChild>
-                        <TouchableOpacity style={styles.gridButton}>
-                            <Feather name="map" size={32} color={COLORS.primary} />
-                            <Text style={styles.gridButtonText}>Ver Mapa</Text>
-                        </TouchableOpacity>
-                    </Link>
-                    <Link href="/client-list" asChild>
-                        <TouchableOpacity style={styles.gridButton}>
-                            <Feather name="users" size={32} color={COLORS.primary} />
-                            <Text style={styles.gridButtonText}>Mis Clientes</Text>
-                        </TouchableOpacity>
-                    </Link>
-                    <Link href="/add-client" asChild>
-                        <TouchableOpacity style={styles.gridButton}>
-                            <Feather name="user-plus" size={32} color={COLORS.primary} />
-                            <Text style={styles.gridButtonText}>Añadir Cliente</Text>
-                        </TouchableOpacity>
-                    </Link>
-                    <Link href="/reports" asChild>
-                        <TouchableOpacity style={styles.gridButton}>
-                            <Feather name="pie-chart" size={32} color={COLORS.primary} />
-                            <Text style={styles.gridButtonText}>Reportes</Text>
-                        </TouchableOpacity>
-                    </Link>
-                    <Link href="/promotions" asChild>
-                        <TouchableOpacity style={styles.gridButton}>
-                            <Feather name="star" size={32} color={COLORS.primary} />
-                            <Text style={styles.gridButtonText}>Promociones</Text>
-                        </TouchableOpacity>
-                    </Link>
-                    {/* Puedes añadir más botones aquí si es necesario */}
+                {/* --- HEADER --- */}
+                <View style={styles.header}>
+                    <View>
+                        <Text style={styles.greeting}>Hola,</Text>
+                        <Text style={styles.userName} numberOfLines={1}>
+                            {currentVendedor?.nombreCompleto || 'Vendedor'}
+                        </Text>
+                    </View>
+                    <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                        <Feather name="log-out" size={24} color={COLORS.danger} />
+                    </TouchableOpacity>
                 </View>
+                
+                {/* --- NUEVO: Tarjeta de Acciones Principales --- */}
+                <Text style={styles.sectionTitle}>Acciones Principales</Text>
+                <View style={styles.primaryActionsCard}>
+                    {/* Botón Mis Clientes */}
+                    <TouchableOpacity 
+                        style={styles.primaryButton} 
+                        onPress={() => router.push('/client-list')}
+                    >
+                        <Feather name="users" size={28} color={COLORS.primary} />
+                        <View style={styles.primaryButtonTextContainer}>
+                            <Text style={styles.primaryButtonTitle}>Mis Clientes</Text>
+                            <Text style={styles.primaryButtonSubtitle}>Gestionar cartera y ventas</Text>
+                        </View>
+                        <Feather name="chevron-right" size={24} color={COLORS.textSecondary} />
+                    </TouchableOpacity>
+
+                    {/* Divisor */}
+                    <View style={styles.divider} />
+
+                    {/* Botón Crear Venta */}
+                    <TouchableOpacity 
+                        style={styles.primaryButton} 
+                        onPress={() => router.push('/select-client-for-sale')}
+                    >
+                        <Feather name="plus-circle" size={28} color={COLORS.primary} />
+                        <View style={styles.primaryButtonTextContainer}>
+                            <Text style={styles.primaryButtonTitle}>Crear Venta</Text>
+                            <Text style={styles.primaryButtonSubtitle}>Iniciar un pedido rápido</Text>
+                        </View>
+                        <Feather name="chevron-right" size={24} color={COLORS.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+
+                {/* --- NUEVO: Herramientas (Menú de Círculos) --- */}
+                <Text style={styles.sectionTitle}>Herramientas</Text>
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.toolsContainer}
+                >
+                    <TouchableOpacity style={styles.toolButton} onPress={() => router.push('/add-client')}>
+                        <View style={styles.toolIconCircle}>
+                            <Feather name="user-plus" size={26} color={COLORS.primary} />
+                        </View>
+                        <Text style={styles.toolText}>Nuevo Cliente</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity style={styles.toolButton} onPress={() => router.push('/client-map')}>
+                        <View style={styles.toolIconCircle}>
+                            <Feather name="map-pin" size={26} color={COLORS.primary} />
+                        </View>
+                        <Text style={styles.toolText}>Mapa</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.toolButton} onPress={() => router.push('/reports')}>
+                        <View style={styles.toolIconCircle}>
+                            <Feather name="bar-chart-2" size={26} color={COLORS.primary} />
+                        </View>
+                        <Text style={styles.toolText}>Reportes</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.toolButton} onPress={() => router.push('/promotions')}>
+                        <View style={styles.toolIconCircle}>
+                            <Feather name="gift" size={26} color={COLORS.primary} />
+                        </View>
+                        <Text style={styles.toolText}>Promos</Text>
+                    </TouchableOpacity>
+                </ScrollView>
+
+
+                {/* --- VENTAS RECIENTES (Menos invasivo) --- */}
+                <Text style={styles.sectionTitle}>Actividad Reciente</Text>
+                <FlatList
+                    horizontal
+                    data={recentSales}
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={styles.recentSalesList}
+                    ListEmptyComponent={
+                        <View style={styles.emptyRecent}>
+                            <Text style={styles.emptyRecentText}>No hay ventas recientes.</Text>
+                        </View>
+                    }
+                    renderItem={({ item }) => (
+                        <TouchableOpacity 
+                            style={styles.recentSaleCard}
+                            onPress={() => router.push({ pathname: '/sale-detail', params: { saleId: item.id } })}
+                        >
+                            <View style={styles.recentSaleHeader}>
+                                <Text style={styles.recentSaleDate}>{formatDate(item.fecha)}</Text>
+                                <Text 
+                                    style={[
+                                        styles.recentSaleStatus, 
+                                        { color: item.estado === 'Pendiente de Pago' ? COLORS.warning : (item.estado === 'Pagada' ? COLORS.success : COLORS.textSecondary) }
+                                    ]}>
+                                    {item.estado}
+                                </Text>
+                            </View>
+                            <Text style={styles.recentSaleClient} numberOfLines={1}>{item.clientName}</Text>
+                            <Text style={styles.recentSaleTotal}>{formatCurrency(item.totalVenta)}</Text>
+                        </TouchableOpacity>
+                    )}
+                />
+
             </ScrollView>
-        </SafeAreaView>
+            
+            {/* --- FAB Eliminado, acción movida a los círculos --- */}
+        </View>
     );
 };
 
-// --- ESTILOS (sin cambios respecto a la versión anterior) ---
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.backgroundEnd,
-    },
-    loadingContainer: {
+    container: { flex: 1, backgroundColor: COLORS.backgroundEnd },
+    background: { position: 'absolute', left: 0, right: 0, top: 0, height: '100%' },
+    fullScreenLoader: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    background: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        top: 0,
-        height: '100%',
+    loadingText: {
+        marginTop: 15,
+        color: COLORS.textSecondary,
+        fontSize: 16
+    },
+    scrollContent: {
+        paddingBottom: 40,
+        paddingTop: (StatusBar.currentHeight || 0) + 10,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingTop: 20, // Ajustado para SafeAreaView
         paddingHorizontal: 20,
-        marginBottom: 30,
+        marginBottom: 20,
     },
     greeting: {
-        fontSize: 20,
+        fontSize: 22,
         color: COLORS.textSecondary,
     },
     userName: {
         fontSize: 28,
         fontWeight: 'bold',
         color: COLORS.textPrimary,
+        maxWidth: 250,
     },
     logoutButton: {
         padding: 12,
@@ -203,32 +314,132 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: COLORS.glassBorder,
     },
-    scrollContent: {
-        paddingHorizontal: 15,
-        paddingBottom: 20, // Añadir padding al final si es necesario
-    },
-    gridContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-    },
-    gridButton: {
-        width: '48%', // Asegura 2 columnas
-        aspectRatio: 1, // Mantiene el botón cuadrado
-        backgroundColor: COLORS.glass,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: '4%', // Espacio entre filas
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
-    },
-    gridButtonText: {
-        marginTop: 12,
-        fontSize: 16,
+    sectionTitle: {
+        fontSize: 20,
         fontWeight: '600',
         color: COLORS.textPrimary,
+        paddingHorizontal: 20,
+        marginBottom: 15,
+        marginTop: 10,
+    },
+    
+    // --- NUEVO: Estilos de Tarjeta de Acción Principal ---
+    primaryActionsCard: {
+        backgroundColor: COLORS.glass,
+        marginHorizontal: 20,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
+        padding: 10, // Padding ligero, los botones tendrán el suyo
+        marginBottom: 25,
+    },
+    primaryButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 15,
+        paddingHorizontal: 10,
+    },
+    primaryButtonTextContainer: {
+        flex: 1,
+        marginLeft: 15,
+        marginRight: 10,
+    },
+    primaryButtonTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: COLORS.textPrimary,
+    },
+    primaryButtonSubtitle: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        marginTop: 2,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: COLORS.glassBorder,
+        marginHorizontal: 10,
+    },
+
+    // --- NUEVO: Estilos de Herramientas (Círculos) ---
+    toolsContainer: {
+        paddingHorizontal: 20,
+        paddingBottom: 10,
+        marginBottom: 15,
+    },
+    toolButton: {
+        alignItems: 'center',
+        marginRight: 25,
+        width: 80, // Ancho fijo para alinear texto
+    },
+    toolIconCircle: {
+        width: 64,
+        height: 64,
+        borderRadius: 32, // Círculo perfecto
+        backgroundColor: COLORS.glass,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    toolText: {
+        color: COLORS.textSecondary,
+        fontSize: 13,
+        fontWeight: '500',
         textAlign: 'center',
+    },
+
+    // --- Estilos de Ventas Recientes (Ajustados) ---
+    recentSalesList: {
+        paddingLeft: 20, 
+        paddingRight: 10, // Espacio al final
+        paddingBottom: 20
+    },
+    emptyRecent: {
+        width: 300,
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyRecentText: {
+        color: COLORS.textSecondary,
+        fontStyle: 'italic'
+    },
+    recentSaleCard: {
+        width: 220, // Más pequeña
+        backgroundColor: COLORS.glass,
+        borderRadius: 15,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
+        padding: 12,
+        marginRight: 10,
+    },
+    recentSaleHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    recentSaleDate: {
+        color: COLORS.textSecondary,
+        fontSize: 12,
+    },
+    recentSaleStatus: {
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    recentSaleClient: {
+        color: COLORS.textPrimary,
+        fontSize: 15,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    recentSaleTotal: {
+        color: COLORS.primary,
+        fontSize: 17,
+        fontWeight: 'bold',
+        textAlign: 'right',
+        marginTop: 3,
     },
 });
 
